@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Contenido de caja</title>
+<style>
+:root{--g:#621333;--g2:#4a0e26;--t:#f3e1e9;--bg:#f6f2f4;--fg:#2b1d23;--fg2:#6e5a63;--bd:#e4d5dc;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--bg:#1a1114;--fg:#f3e6eb;--fg2:#c2a9b3;--bd:#3b2830;--card:#24171c;--t:#3a1d29}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg)}
+header{background:var(--g);color:#fff;padding:18px 16px 16px}
+header small{opacity:.8;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+header h1{margin:2px 0 4px;font-size:30px}
+header p{margin:0;font-size:13px;opacity:.9}
+.tot{display:flex;gap:8px;padding:12px 16px 4px;flex-wrap:wrap}
+.tot div{flex:1;min-width:90px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:8px 10px}
+.tot b{display:block;font-size:20px;color:var(--g)}
+@media (prefers-color-scheme:dark){.tot b{color:#e7a3bd}}
+.tot span{font-size:11px;color:var(--fg2)}
+.buscar{padding:8px 16px}
+.buscar input{width:100%;padding:10px 12px;font-size:16px;border:1px solid var(--bd);border-radius:10px;background:var(--card);color:var(--fg)}
+ul{list-style:none;margin:0;padding:4px 16px 24px}
+li{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px}
+.n{flex:none;min-width:34px;height:34px;border-radius:8px;background:var(--t);color:var(--g);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}
+@media (prefers-color-scheme:dark){.n{color:#f3c4d6}}
+.nom{font-weight:600;font-size:15px;line-height:1.3}
+.det{font-size:12px;color:var(--fg2);margin-top:3px}
+.obs{display:inline-block;margin-top:4px;font-size:11px;background:var(--t);color:var(--g);border-radius:6px;padding:1px 6px}
+@media (prefers-color-scheme:dark){.obs{color:#f3c4d6}}
+.msg{padding:28px 16px;text-align:center;color:var(--fg2)}
+footer{font-size:11px;color:var(--fg2);text-align:center;padding:0 16px 24px}
+</style>
+</head>
+<body>
+<header><small id="dep">Inventario de acervo expedientable</small><h1 id="tit">Caja</h1><p id="uni"></p></header>
+<main id="app"><p class="msg">Cargando contenido…</p></main>
+<footer id="pie"></footer>
+<script>
+const $=s=>document.querySelector(s);
+const b64=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return Uint8Array.from(atob(s),c=>c.charCodeAt(0));};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function msg(t){$('#app').innerHTML='<p class="msg">'+t+'</p>';}
+async function cargar(){
+  const h=location.hash.slice(1).split('.');
+  if(h.length!==2){msg('Escanea el código QR de una caja para ver su contenido.');return;}
+  let r;
+  try{r=await fetch('d/'+h[0]+'.json?t='+Date.now(),{cache:'no-store'});}catch(e){msg('Sin conexión a internet. Intenta de nuevo.');return;}
+  if(!r.ok){msg('Esta caja todavía no tiene lista publicada.');return;}
+  let d;
+  try{
+    const enc=await r.json();
+    const key=await crypto.subtle.importKey('raw',b64(h[1]),'AES-GCM',false,['decrypt']);
+    const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(enc.iv)},key,b64(enc.ct));
+    d=JSON.parse(new TextDecoder().decode(pt));
+  }catch(e){msg('No se pudo leer el contenido de esta caja.');return;}
+  document.title='Caja '+d.caja;
+  $('#tit').textContent='Caja '+d.caja;
+  $('#dep').textContent=d.dependencia||'Inventario de acervo expedientable';
+  $('#uni').textContent=d.unidad&&d.unidad!==d.dependencia?d.unidad:'';
+  const ex=d.expedientes||[];
+  const docs=ex.reduce((a,x)=>a+(x.documentos||0),0),leg=ex.reduce((a,x)=>a+(x.legajos||0),0);
+  if(!ex.length){msg('Esta caja ya no tiene expedientes registrados.');}
+  else{
+    $('#app').innerHTML='<div class="tot"><div><b>'+ex.length+'</b><span>expedientes</span></div><div><b>'+docs+'</b><span>documentos</span></div><div><b>'+leg+'</b><span>legajos</span></div></div>'
+    +(ex.length>6?'<div class="buscar"><input id="q" type="search" placeholder="Buscar en esta caja…"></div>':'')
+    +'<ul id="lista">'+ex.map(x=>'<li data-t="'+esc((x.nombre+' '+(x.observaciones||'')+' '+x.n).toLowerCase())+'"><div class="n">'+esc(x.n)+'</div><div><div class="nom">'+esc(x.nombre)+'</div><div class="det">'
+      +[x.periodo,x.conservacion,x.legajos?x.legajos+' leg.':'',x.documentos?x.documentos+' docs':''].filter(Boolean).map(esc).join(' · ')+'</div>'
+      +(x.observaciones?'<span class="obs">'+esc(x.observaciones)+'</span>':'')+'</div></li>').join('')+'</ul>';
+    const q=$('#q');
+    if(q)q.addEventListener('input',()=>{const v=q.value.toLowerCase();document.querySelectorAll('#lista li').forEach(li=>li.style.display=li.dataset.t.includes(v)?'':'none');});
+  }
+  $('#pie').textContent=(ex.length?'No. = número del inventario Excel · ':'')+'Actualizado: '+new Date(d.actualizado).toLocaleString('es-MX');
+}
+cargar();
+window.addEventListener('hashchange',cargar);
+</script>
+</body>
+</html>
