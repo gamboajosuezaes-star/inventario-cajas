@@ -11,7 +11,9 @@
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--fg)}
 header{background:var(--g);color:#fff;padding:18px 16px 16px}
-header small{opacity:.8;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+header .tipo{display:inline-block;background:rgba(255,255,255,.2);border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+header .dep{font-size:16px;font-weight:600;margin-top:8px;line-height:1.25}
+header small{display:block;opacity:.8;font-size:11px;letter-spacing:.05em;text-transform:uppercase;margin-top:6px}
 header h1{margin:2px 0 4px;font-size:30px}
 header p{margin:0;font-size:13px;opacity:.9}
 .tot{display:flex;gap:8px;padding:12px 16px 4px;flex-wrap:wrap}
@@ -34,7 +36,7 @@ footer{font-size:11px;color:var(--fg2);text-align:center;padding:0 16px 24px}
 </style>
 </head>
 <body>
-<header><small id="dep">Inventario de acervo expedientable</small><h1 id="tit">Caja</h1><p id="uni"></p></header>
+<header><span class="tipo" id="tipo">Expedientes</span><div class="dep" id="dep"></div><h1 id="tit">Caja</h1><p id="uni"></p></header>
 <main id="app"><p class="msg">Cargando contenido…</p></main>
 <footer id="pie"></footer>
 <script>
@@ -57,13 +59,15 @@ async function cargar(){
   }catch(e){msg('No se pudo leer el contenido de esta caja.');return;}
   document.title='Caja '+d.caja;
   $('#tit').textContent='Caja '+d.caja;
+  $('#tipo').textContent=d.tipo||'Expedientes';
   $('#dep').textContent=d.dependencia||'Inventario de acervo expedientable';
+  const pl={Expedientes:'expedientes',Libros:'libros',Revistas:'revistas',Discos:'discos',Disquets:'disquets',Otros:'otros'}[d.tipo]||'expedientes';
   $('#uni').textContent=d.unidad&&d.unidad!==d.dependencia?d.unidad:'';
   const ex=d.expedientes||[];
   const docs=ex.reduce((a,x)=>a+(x.documentos||0),0),leg=ex.reduce((a,x)=>a+(x.legajos||0),0);
-  if(!ex.length){msg('Esta caja ya no tiene expedientes registrados.');}
+  if(!ex.length){msg('Esta caja ya no tiene registros.');}
   else{
-    $('#app').innerHTML='<div class="tot"><div><b>'+ex.length+'</b><span>expedientes</span></div><div><b>'+docs+'</b><span>documentos</span></div><div><b>'+leg+'</b><span>legajos</span></div></div>'
+    $('#app').innerHTML='<div class="tot"><div><b>'+ex.length+'</b><span>'+pl+'</span></div><div><b>'+docs+'</b><span>documentos</span></div><div><b>'+leg+'</b><span>legajos</span></div></div>'
     +(ex.length>6?'<div class="buscar"><input id="q" type="search" placeholder="Buscar en esta caja…"></div>':'')
     +'<ul id="lista">'+ex.map(x=>'<li data-t="'+esc((x.nombre+' '+(x.observaciones||'')+' '+x.n).toLowerCase())+'"><div class="n">'+esc(x.n)+'</div><div><div class="nom">'+esc(x.nombre)+'</div><div class="det">'
       +[x.periodo,x.conservacion,x.legajos?x.legajos+' leg.':'',x.documentos?x.documentos+' docs':''].filter(Boolean).map(esc).join(' · ')+'</div>'
@@ -71,7 +75,7 @@ async function cargar(){
     const q=$('#q');
     if(q)q.addEventListener('input',()=>{const v=q.value.toLowerCase();document.querySelectorAll('#lista li').forEach(li=>li.style.display=li.dataset.t.includes(v)?'':'none');});
   }
-  $('#pie').textContent=(ex.length?'No. = número del inventario Excel · ':'')+'Actualizado: '+new Date(d.actualizado).toLocaleString('es-MX');
+  $('#pie').textContent=(ex.length?'No. = número del inventario Excel de '+(d.tipo||'Expedientes').toLowerCase()+' · ':'')+'Actualizado: '+new Date(d.actualizado).toLocaleString('es-MX');
 }
 cargar();
 window.addEventListener('hashchange',cargar);
